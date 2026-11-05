@@ -1,85 +1,110 @@
 "use client";
 
-import React, { memo } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { ShieldCheck, RefreshCw, PanelLeft, ExternalLink } from "lucide-react";
+import { ChevronDown, LogOut, Menu, UserRound } from "lucide-react";
 import { useAppSelector } from "@/redux/store/hooks";
+import { useSignOut } from "@/lib/useSignOut";
+import { Avatar } from "@/components/ui/Layout";
+import { currentNavItem } from "./nav";
 
-interface HeaderProps {
-  onToggleSidebar?: () => void;
-  isSidebarCollapsed?: boolean;
-}
-
-const titlesMap: Record<string, { title: string; subtitle: string }> = {
-  "/dashboard": {
-    title: "System Overview",
-    subtitle: "Real-time telemetry and operational metrics across ALAYN platform",
-  },
-  "/outlets": {
-    title: "Outlets & Locations",
-    subtitle: "Monitor registered restaurant brands and their physical branch network",
-  },
-  "/coupons": {
-    title: "Subscription Discount Coupons",
-    subtitle: "Create and manage promotional discount codes for restaurant subscriptions",
-  },
-  "/profile": {
-    title: "Administrator Profile",
-    subtitle: "Security credentials and platform administrator details",
-  },
-};
-
-export const AdminHeader = memo(function AdminHeader({
-  onToggleSidebar,
-}: HeaderProps) {
-  const pathname = usePathname();
+function AccountMenu() {
   const user = useAppSelector((state) => state.auth.user);
+  const { signOut, isSigningOut } = useSignOut();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
-  const matched =
-    titlesMap[pathname] ||
-    Object.entries(titlesMap).find(([key]) => pathname.startsWith(`${key}/`))?.[1] || {
-      title: "Administration",
-      subtitle: "ALAYN Operations Platform Management",
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   return (
-    <header className="h-16 bg-white border-b border-zinc-200/80 px-6 flex items-center justify-between sticky top-0 z-30 shadow-2xs">
-      <div className="flex items-center gap-3">
-        {onToggleSidebar && (
-          <button
-            onClick={onToggleSidebar}
-            className="md:hidden p-1.5 rounded-lg text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="flex items-center gap-2.5 rounded-lg py-1 pl-1 pr-2 transition-colors hover:bg-slate-100"
+      >
+        <Avatar name={user?.name || user?.email} size="sm" />
+        <span className="hidden max-w-[160px] truncate text-sm font-medium text-slate-700 sm:block">
+          {user?.name || user?.email || "Admin"}
+        </span>
+        <ChevronDown className="hidden size-4 text-slate-400 sm:block" aria-hidden />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-50 mt-2 w-64 origin-top-right rounded-xl border border-slate-200 bg-white p-1.5 shadow-pop animate-scale-in"
+        >
+          <div className="px-3 py-2.5">
+            <p className="truncate text-sm font-semibold text-slate-900">{user?.name || "Administrator"}</p>
+            <p className="truncate text-[13px] text-slate-500">{user?.email}</p>
+          </div>
+          <div className="my-1 border-t border-slate-100" />
+          <Link
+            href="/profile"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
           >
-            <PanelLeft className="w-5 h-5" />
+            <UserRound className="size-4 text-slate-400" />
+            My account
+          </Link>
+          <button
+            role="menuitem"
+            onClick={signOut}
+            disabled={isSigningOut}
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-slate-700 hover:bg-brand-50 hover:text-brand-700 disabled:opacity-50"
+          >
+            <LogOut className="size-4 text-slate-400" />
+            {isSigningOut ? "Signing out…" : "Sign out"}
           </button>
-        )}
-        <div>
-          <h1 className="text-base font-bold text-[#1B2A4A] tracking-tight font-heading leading-tight">
-            {matched.title}
-          </h1>
-          <p className="text-[11px] text-zinc-500 hidden sm:block leading-none mt-0.5">
-            {matched.subtitle}
-          </p>
         </div>
-      </div>
+      )}
+    </div>
+  );
+}
 
-      <div className="flex items-center gap-3">
-        {/* Environment Badge */}
-        <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200/80 text-emerald-700 text-xs font-semibold">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          System Operational
-        </div>
+export function AdminHeader({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
+  const pathname = usePathname();
+  const current = currentNavItem(pathname);
 
-        {/* Security Role Tag */}
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-[#1B2A4A]/5 border border-[#1B2A4A]/10 text-[#1B2A4A] text-xs font-semibold">
-          <ShieldCheck className="w-3.5 h-3.5 text-[#D3232A]" />
-          <span className="hidden md:inline font-mono text-[11px]">SUPER_ADMIN</span>
-          <span className="text-zinc-400 hidden lg:inline">|</span>
-          <span className="truncate max-w-[130px] hidden lg:inline text-zinc-600">
-            {user?.name || user?.email || "Admin"}
+  return (
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b border-slate-200 bg-white/85 px-4 backdrop-blur-md sm:px-6 lg:px-8">
+      <div className="flex min-w-0 items-center gap-3">
+        <button
+          onClick={onOpenMobileNav}
+          aria-label="Open menu"
+          className="-ml-1.5 rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
+        >
+          <Menu className="size-5" />
+        </button>
+        <Link href="/dashboard" className="lg:hidden" aria-label="ALAYN Admin home">
+          <Image src="/alaynlogo.png" alt="ALAYN" width={1280} height={297} className="h-7 w-auto mix-blend-multiply" priority />
+        </Link>
+        <nav aria-label="Breadcrumb" className="hidden min-w-0 items-center gap-2 text-sm lg:flex">
+          <span className="text-slate-400">Admin</span>
+          <span className="text-slate-300" aria-hidden>/</span>
+          <span className="truncate font-medium text-slate-900" aria-current="page">
+            {current?.name ?? "Admin"}
           </span>
-        </div>
+        </nav>
       </div>
+      <AccountMenu />
     </header>
   );
-});
+}

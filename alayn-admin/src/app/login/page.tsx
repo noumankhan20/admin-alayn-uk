@@ -2,22 +2,14 @@
 
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
-  AlertCircle,
-  ArrowRight,
-  ShieldCheck,
-} from "lucide-react";
+import { AlertCircle, ArrowRight, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useLoginMutation } from "@/redux/slices/authApiSlice";
 import { useAppDispatch, useAppSelector } from "@/redux/store/hooks";
 import { setCredentials } from "@/redux/slices/authSlice";
 import { showToast } from "@/lib/toast";
 import { eraseCookie } from "@/lib/utils";
+import { Button } from "@/components/ui/Button";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -27,8 +19,8 @@ export default function AdminLoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [rememberMe, setRememberMe] = useState(true);
 
   const [login, { isLoading }] = useLoginMutation();
 
@@ -42,7 +34,8 @@ export default function AdminLoginPage() {
     }
 
     if (typeof window !== "undefined" && window.location.search.includes("expired=true")) {
-      setErrorMessage("Your administrative session has expired. Please sign in again.");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setErrorMessage("Your session expired. Please sign in again.");
     }
   }, [isAuthenticated, user, router]);
 
@@ -52,16 +45,14 @@ export default function AdminLoginPage() {
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
-      setErrorMessage("Please enter both email and password.");
+      setErrorMessage("Enter your email and password.");
       return;
     }
 
     try {
-      const response = await login({
-        email: trimmedEmail,
-        password,
-      }).unwrap();
+      const response = await login({ email: trimmedEmail, password }).unwrap();
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const payload = (response as any)?.data || response;
       const loggedUser = payload?.user;
 
@@ -69,11 +60,7 @@ export default function AdminLoginPage() {
       const isSuperAdmin = rawRole === "SUPER_ADMIN" || rawRole === "ADMIN";
 
       if (!isSuperAdmin) {
-        setErrorMessage("Access denied: You do not have Super Administrator privileges.");
-        showToast.error(
-          "Access Restricted",
-          "This portal is exclusively for ALAYN platform administrators."
-        );
+        setErrorMessage("This account doesn't have admin access. Only ALAYN platform administrators can sign in here.");
         return;
       }
 
@@ -82,213 +69,147 @@ export default function AdminLoginPage() {
       dispatch(setCredentials({ user: loggedUser }));
       showToast.success("Welcome back", `Signed in as ${loggedUser.name || loggedUser.email}`);
       router.replace("/dashboard");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       const msg =
         err?.data?.error?.message ||
         err?.data?.message ||
         (typeof err?.data?.error === "string" ? err?.data?.error : null) ||
-        (err?.message === "Failed to fetch"
-          ? "Cannot connect to server. Please check backend connection."
+        (err?.status === "FETCH_ERROR" || err?.message === "Failed to fetch"
+          ? "Can't reach the server. Check your connection and try again."
           : err?.message) ||
-        "Invalid administrator credentials.";
+        "That email and password don't match. Please try again.";
       setErrorMessage(msg);
-      showToast.error("Sign in failed", msg);
     }
   }
 
+  const onPasswordKey = (e: React.KeyboardEvent<HTMLInputElement>) => setCapsLock(e.getModifierState("CapsLock"));
+
   return (
-    <div className="min-h-screen w-full bg-[#0A0B0E] text-white flex flex-col lg:grid lg:grid-cols-2 font-sans selection:bg-[#D3232A] selection:text-white">
-      {/* ─── Left Visual Showcase ───────────────────────────────────────── */}
-      <div className="relative hidden lg:flex flex-col justify-between p-12 xl:p-16 overflow-hidden bg-gradient-to-br from-[#0B132B] via-[#121D33] to-[#0A0B0E]">
-        {/* Background Ambient Layers */}
-        <div className="absolute inset-0 z-0">
-          <Image
-            src="/alaynimage.png"
-            alt="ALAYN Management"
-            fill
-            priority
-            className="object-cover object-center opacity-25 brightness-90 scale-105 transition-transform duration-1000"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0A0B0E] via-[#0A0B0E]/70 to-[#0B132B]/85" />
-          <div className="absolute inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none opacity-50" />
-          <div className="absolute -top-32 -left-32 w-96 h-96 bg-[#D3232A]/20 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-[#1B2A4A]/50 rounded-full blur-3xl pointer-events-none" />
+    <div className="flex min-h-screen w-full bg-white lg:grid lg:grid-cols-[1.05fr_1fr]">
+      {/* Brand panel */}
+      <div className="relative hidden overflow-hidden bg-navy-900 lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
+        <Image
+          src="/alaynimage.png"
+          alt=""
+          fill
+          priority
+          sizes="50vw"
+          className="object-cover opacity-20 mix-blend-luminosity"
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-navy-900/60 via-navy-900/85 to-navy-950" aria-hidden />
+        <div className="absolute -left-40 -top-40 size-[28rem] rounded-full bg-brand-600/20 blur-3xl" aria-hidden />
+
+        <div className="relative">
+          <Image src="/whitelogo.png" alt="ALAYN" width={160} height={48} priority className="h-10 w-auto" />
         </div>
 
-        {/* Brand Header */}
-        <div className="relative z-10 flex items-center gap-3">
-          <Image
-            src="/whitelogo.png"
-            alt="ALAYN Platform"
-            width={160}
-            height={48}
-            priority
-            unoptimized
-            className="h-10 w-auto object-contain drop-shadow-md"
-          />
-          <div className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 border border-white/15 backdrop-blur-md">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#D3232A]" />
-            <span className="text-[11px] font-bold text-white tracking-wider uppercase">
-              Admin Gateway
-            </span>
-          </div>
-        </div>
-
-        {/* Editorial Text */}
-        <div className="relative z-10 max-w-lg space-y-4">
-          <div className="w-12 h-1 bg-[#D3232A] rounded-full" />
-          <h1 className="text-3xl xl:text-4xl font-extrabold text-white tracking-tight leading-tight">
-            The Official Platform Management Suite
+        <div className="relative max-w-md">
+          <div className="mb-6 h-1 w-10 rounded-full bg-brand-600" />
+          <h1 className="text-4xl font-bold leading-tight tracking-tight text-white">
+            Run the whole ALAYN platform from one place.
           </h1>
-          <p className="text-sm xl:text-base text-zinc-300 leading-relaxed">
-            Centralized enterprise administration for multi-brand dining operations, outlets, employee governance, billing, real-time analytics, and platform control.
+          <p className="mt-4 text-base leading-relaxed text-navy-200">
+            Look after restaurant brands and their branches, and manage subscription coupons.
           </p>
         </div>
 
-        {/* Footer Note */}
-        <div className="relative z-10 text-xs text-zinc-400">
-          &copy; {new Date().getFullYear()} ALAYN Platform. All rights reserved.
-        </div>
+        <p className="relative text-[13px] text-navy-300">© {new Date().getFullYear()} ALAYN</p>
       </div>
 
-      {/* ─── Right Form Panel ────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col justify-center items-center px-6 py-12 sm:px-12 lg:px-16 xl:px-20 bg-[#0A0B0E] relative z-10">
-        
-        {/* Mobile Header Logo */}
-        <div className="lg:hidden mb-10 text-center">
+      {/* Form */}
+      <main className="flex flex-1 flex-col items-center justify-center px-6 py-12 sm:px-12">
+        <div className="w-full max-w-sm">
           <Image
-            src="/whitelogo.png"
-            alt="ALAYN Platform"
-            width={150}
-            height={44}
+            src="/alaynlogo.png"
+            alt="ALAYN"
+            width={1280}
+            height={297}
             priority
-            unoptimized
-            className="h-10 w-auto object-contain mx-auto"
+            className="mb-10 h-9 w-auto mix-blend-multiply lg:hidden"
           />
-        </div>
 
-        <div className="w-full max-w-md">
-          {/* Header */}
-          <div className="mb-8">
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Admin Sign In
-            </h2>
-            <p className="text-sm text-zinc-400 mt-2">
-              Enter your authorized credentials to access the console.
-            </p>
-          </div>
+          <h2 className="text-2xl font-bold tracking-tight">Sign in to Admin</h2>
+          <p className="mt-1.5 text-sm text-slate-500">Use your ALAYN administrator account.</p>
 
-          {/* Error Message */}
           {errorMessage && (
-            <div className="mb-6 p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 flex items-start gap-3 text-sm animate-in fade-in duration-200">
-              <AlertCircle size={18} className="shrink-0 text-red-400 mt-0.5" />
+            <div
+              role="alert"
+              className="mt-6 flex items-start gap-2.5 rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm text-brand-800 animate-fade-in"
+            >
+              <AlertCircle className="mt-0.5 size-4 shrink-0 text-brand-600" />
               <span>{errorMessage}</span>
             </div>
           )}
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email Field */}
-            <div className="space-y-2">
-              <label
-                htmlFor="email"
-                className="text-xs font-semibold uppercase tracking-wider text-zinc-300 block"
-              >
-                Email Address
+          <form onSubmit={handleSubmit} className="mt-6 space-y-5" noValidate>
+            <div>
+              <label htmlFor="email" className="field-label">
+                Email
               </label>
-              <div className="relative flex items-center">
-                <Mail size={18} className="absolute left-4 text-zinc-500 pointer-events-none" />
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type="email"
                   id="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@alayn.app"
-                  autoComplete="email"
-                  className="w-full pl-11 pr-4 py-3.5 bg-zinc-900/80 border border-zinc-800 rounded-xl text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#D3232A] focus:ring-1 focus:ring-[#D3232A] transition-colors"
+                  placeholder="you@alayn.app"
+                  autoComplete="username"
+                  autoFocus
+                  className="input h-11 pl-9"
                   required
                 />
               </div>
             </div>
 
-            {/* Password Field */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label
-                  htmlFor="password"
-                  className="text-xs font-semibold uppercase tracking-wider text-zinc-300 block"
-                >
-                  Password
-                </label>
-              </div>
-              <div className="relative flex items-center">
-                <Lock size={18} className="absolute left-4 text-zinc-500 pointer-events-none" />
+            <div>
+              <label htmlFor="password" className="field-label">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type={showPassword ? "text" : "password"}
                   id="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter your password"
+                  onKeyUp={onPasswordKey}
+                  onKeyDown={onPasswordKey}
+                  placeholder="Your password"
                   autoComplete="current-password"
-                  className="w-full pl-11 pr-11 py-3.5 bg-zinc-900/80 border border-zinc-800 rounded-xl text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-[#D3232A] focus:ring-1 focus:ring-[#D3232A] transition-colors"
+                  className="input h-11 pl-9 pr-11"
                   required
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  tabIndex={-1}
+                  onClick={() => setShowPassword((s) => !s)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute right-4 text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer"
+                  aria-pressed={showPassword}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                 </button>
               </div>
+              {capsLock && <p className="field-hint text-amber-700">Caps Lock is on.</p>}
             </div>
 
-            {/* Remember Me */}
-            <div className="flex items-center gap-2.5 pt-1">
-              <input
-                type="checkbox"
-                id="remember"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 accent-[#D3232A] cursor-pointer"
-              />
-              <label
-                htmlFor="remember"
-                className="text-xs text-zinc-400 hover:text-zinc-300 cursor-pointer select-none"
-              >
-                Keep me signed in on this device
-              </label>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3.5 mt-2 bg-[#D3232A] hover:bg-[#b01e23] active:scale-[0.99] text-white font-bold text-sm tracking-wide rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-900/20 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+            <Button type="submit" size="lg" loading={isLoading} className="w-full">
               {isLoading ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Signing in...</span>
-                </>
+                "Signing in…"
               ) : (
                 <>
-                  <span>Sign In</span>
-                  <ArrowRight size={16} className="stroke-[2.5]" />
+                  Sign in <ArrowRight />
                 </>
               )}
-            </button>
+            </Button>
           </form>
 
-          {/* Footer Note */}
-          <div className="mt-8 text-center text-xs text-zinc-400">
-            Authorized personnel only. All access attempts are logged.
-          </div>
+          <p className="mt-8 text-center text-[13px] text-slate-400">
+            For authorised ALAYN staff only. Sign-in attempts are logged.
+          </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
-

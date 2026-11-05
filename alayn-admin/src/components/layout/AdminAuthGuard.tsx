@@ -6,6 +6,7 @@ import { useAppDispatch, useAppSelector } from "@/redux/store/hooks";
 import { useGetMeQuery } from "@/redux/slices/authApiSlice";
 import { setCredentials, logout } from "@/redux/slices/authSlice";
 import { baseApi } from "@/redux/store/baseApi";
+import { FullPageLoader } from "@/components/layout/FullPageLoader";
 
 export function AdminAuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -46,16 +47,7 @@ export function AdminAuthGuard({ children }: { children: React.ReactNode }) {
   }, [isAuthenticated, meData, meError, meLoading, dispatch, router]);
 
   if (checking || !isAuthenticated || user?.role !== "SUPER_ADMIN") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8F9FA]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-3 border-zinc-200 border-t-[#D3232A] rounded-full animate-spin" />
-          <p className="text-zinc-500 text-xs font-medium tracking-wide">
-            Verifying administrator authorization...
-          </p>
-        </div>
-      </div>
-    );
+    return <FullPageLoader label="Checking your session…" />;
   }
 
   return <>{children}</>;

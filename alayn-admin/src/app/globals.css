@@ -1,162 +1,231 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #1b2a4a;
+/* ───────────────────────── ALAYN design tokens ─────────────────────────
+   Navy is the dominant brand colour (chrome, headings, primary text).
+   Red is the accent: reserved for the primary action and the active state,
+   so it keeps its meaning. Everything else is calm slate. */
+@theme {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-jakarta), var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
-  /* ===== ALAYN DESIGN TOKENS ===== */
-  --cream: #ffffff;
-  --cream-light: #f4f5f8;       /* Subtle navy-tinted off-white */
+  --color-navy-50: #f3f5f9;
+  --color-navy-100: #e4e8f0;
+  --color-navy-200: #c9d1e0;
+  --color-navy-300: #9fadc6;
+  --color-navy-400: #6f82a3;
+  --color-navy-500: #4c6086;
+  --color-navy-600: #36486c;
+  --color-navy-700: #283a5c;
+  --color-navy-800: #1b2a4a;
+  --color-navy-900: #141f38;
+  --color-navy-950: #0d1527;
 
-  /* Deep navy — dominant brand color */
-  --espresso: #1b2a4a;
-  --espresso-mid: #243556;
-  --espresso-dark: #121d33;
+  --color-brand-50: #fdf2f2;
+  --color-brand-100: #fbe3e4;
+  --color-brand-200: #f6c4c6;
+  --color-brand-500: #e0353c;
+  --color-brand-600: #d3232a;
+  --color-brand-700: #b01e23;
+  --color-brand-800: #8f1a1e;
 
-  /* Crimson red — accent brand color */
-  --amber: #c41e2a;
-  --amber-light: #d3232a;
+  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.03);
+  --shadow-pop: 0 10px 38px -10px rgb(15 23 42 / 0.25), 0 10px 20px -15px rgb(15 23 42 / 0.2);
 
-  /* Muted blue-gray */
-  --muted: #6b7a90;
+  --animate-fade-in: fade-in 160ms ease-out;
+  --animate-scale-in: scale-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slide-in-right: slide-in-right 260ms cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-slide-in-left: slide-in-left 240ms cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Borders */
-  --border-warm: rgba(27, 42, 74, 0.1);
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes scale-in {
+    from { opacity: 0; transform: translateY(6px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes slide-in-right {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  @keyframes slide-in-left {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
 }
 
-body {
-  background-color: #f8f9fa;
-  color: var(--foreground);
-  font-family: var(--font-inter), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  min-height: 100vh;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-slate-50);
+    color: var(--color-slate-900);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    color: var(--color-navy-900);
+    letter-spacing: -0.015em;
+  }
+
+  /* Clear, consistent keyboard focus everywhere — never on mouse click. */
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  label[for],
+  select {
+    cursor: pointer;
+  }
+
+  ::selection {
+    background: var(--color-brand-600);
+    color: white;
+  }
 }
 
-h1, h2, h3, h4, h5, h6, .font-heading {
-  font-family: var(--font-plus-jakarta), system-ui, -apple-system, sans-serif;
+@layer components {
+  /* Text input / select — one style used across every form. */
+  .input {
+    width: 100%;
+    height: 2.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--color-slate-300);
+    background: white;
+    padding: 0 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-slate-900);
+    outline: none;
+    transition: border-color 120ms, box-shadow 120ms;
+  }
+  .input:hover {
+    border-color: var(--color-slate-400);
+  }
+  .input:focus {
+    border-color: var(--color-navy-600);
+    box-shadow: 0 0 0 3px rgb(54 72 108 / 0.15);
+  }
+  .input::placeholder {
+    color: var(--color-slate-400);
+  }
+  .input:disabled {
+    background: var(--color-slate-50);
+    color: var(--color-slate-500);
+  }
+  .input[aria-invalid="true"] {
+    border-color: var(--color-brand-600);
+    box-shadow: 0 0 0 3px rgb(211 35 42 / 0.12);
+  }
+
+  .field-label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-slate-700);
+    margin-bottom: 0.375rem;
+  }
+  .field-hint {
+    font-size: 0.75rem;
+    line-height: 1.4;
+    color: var(--color-slate-500);
+    margin-top: 0.375rem;
+  }
+  .field-error {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-brand-700);
+    margin-top: 0.375rem;
+  }
+
+  /* Data tables */
+  .data-table {
+    width: 100%;
+    text-align: left;
+    font-size: 0.875rem;
+  }
+  .data-table thead th {
+    height: 2.5rem;
+    padding: 0 1rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-slate-500);
+    background: var(--color-slate-50);
+    border-bottom: 1px solid var(--color-slate-200);
+    white-space: nowrap;
+  }
+  .data-table tbody td {
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--color-slate-100);
+    vertical-align: middle;
+  }
+  .data-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  .data-table th:first-child,
+  .data-table td:first-child {
+    padding-left: 1.25rem;
+  }
+  .data-table th:last-child,
+  .data-table td:last-child {
+    padding-right: 1.25rem;
+  }
 }
 
-/* Shared form input style */
-.input {
-  width: 100%;
-  border-radius: 0.5rem;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
-  padding: 0.6rem 0.875rem;
-  font-size: 0.875rem;
-  color: #1b2a4a;
-  outline: none;
-  transition: all 0.15s ease-in-out;
+/* Toasts: let our custom content own the layout. */
+.Toastify__toast {
+  padding: 0 !important;
+  border-radius: 12px !important;
+  box-shadow: var(--shadow-pop) !important;
+  border: 1px solid var(--color-slate-200);
+  font-family: var(--font-sans) !important;
+  min-height: 0 !important;
+}
+.Toastify__toast-body {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+.Toastify__close-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
 }
 
-.input:focus {
-  border-color: #d3232a;
-  box-shadow: 0 0 0 3px rgba(211, 35, 42, 0.12);
-}
-
-.input::placeholder {
-  color: #94a3b8;
-  font-size: 0.875rem;
-}
-
-.input.has-icon-left {
-  padding-left: 2.75rem !important;
-}
-
-.input.has-icon-right {
-  padding-right: 2.75rem !important;
-}
-
-/* Shared button styles */
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  border-radius: 0.5rem;
-  background-color: #d3232a;
-  padding: 0.55rem 1.15rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #ffffff;
-  transition: background-color 0.15s, transform 0.1s;
-  cursor: pointer;
-  border: 1px solid transparent;
-}
-.btn-primary:hover {
-  background-color: #b01e23;
-}
-.btn-primary:active {
-  transform: scale(0.98);
-}
-.btn-primary:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.btn-ghost {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  border-radius: 0.5rem;
-  border: 1px solid #e2e8f0;
-  padding: 0.55rem 1.15rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #334155;
-  background-color: #ffffff;
-  transition: all 0.15s;
-  cursor: pointer;
-}
-.btn-ghost:hover {
-  background-color: #f8fafc;
-  color: #0f172a;
-  border-color: #cbd5e1;
-}
-
-.btn-secondary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  border-radius: 0.5rem;
-  background-color: #f1f5f9;
-  border: 1px solid #e2e8f0;
-  padding: 0.55rem 1.15rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #1b2a4a;
-  transition: all 0.15s;
-  cursor: pointer;
-}
-.btn-secondary:hover {
-  background-color: #e2e8f0;
-}
-
-/* Form field label */
-.field-label {
-  display: block;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: #64748b;
-  margin-bottom: 0.35rem;
-}
-
-/* Custom minimal scrollbar */
+/* Minimal scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
+  background: var(--color-slate-300);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background-color: var(--color-slate-400);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+@keyframes loader {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(300%); }
 }

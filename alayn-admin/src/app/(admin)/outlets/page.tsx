@@ -1,286 +1,275 @@
 "use client";
 
-import React, { useState } from "react";
-import {
-  Store,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  Eye,
-  MapPin,
-  RefreshCw,
-  AlertCircle,
-  Building2,
-  Trash2,
-} from "lucide-react";
-import {
-  useGetOutletsQuery,
-  useDeleteBusinessMutation,
-} from "@/redux/slices/adminApiSlice";
+import React, { Suspense, useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ChevronRight, RefreshCw, Store, Trash2 } from "lucide-react";
+import { useGetOutletsQuery, useDeleteBusinessMutation, BusinessItem } from "@/redux/slices/adminApiSlice";
 import { formatDate } from "@/lib/utils";
 import { showToast } from "@/lib/toast";
 import { BranchDetailsDrawer } from "@/components/outlets/BranchDetailsDrawer";
-import { ConfirmDeleteModal } from "@/components/common/ConfirmDeleteModal";
+import { ConfirmDialog } from "@/components/common/ConfirmDialog";
+import { Button } from "@/components/ui/Button";
+import { Avatar, Card, PageHeader } from "@/components/ui/Layout";
+import { EmptyState, ErrorState, Skeleton, errorMessage } from "@/components/ui/Feedback";
+import { Pagination, SearchInput, useDebouncedValue } from "@/components/ui/Controls";
 
-export default function OutletsPage() {
+const PAGE_SIZE = 15;
+
+function OutletsContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  // The open outlet lives in the URL, so it survives refresh and can be shared.
+  const selectedId = searchParams.get("outlet");
+
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
-  const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null);
-  const [businessToDelete, setBusinessToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [toDelete, setToDelete] = useState<BusinessItem | null>(null);
+  const debouncedSearch = useDebouncedValue(search.trim());
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setPage(1);
+  }, [debouncedSearch]);
 
   const { data, isLoading, isFetching, error, refetch } = useGetOutletsQuery({
     page,
-    limit: 15,
-    search: search.trim() || undefined,
+    limit: PAGE_SIZE,
+    search: debouncedSearch || undefined,
   });
+  const [deleteBusiness, { isLoading: isDeleting }] = useDeleteBusinessMutation();
 
-  const [deleteBusiness, { isLoading: isDeletingBusiness }] = useDeleteBusinessMutation();
+  const list = data?.data;
+  const items = list?.items ?? [];
 
-  const handleDeleteBusiness = async () => {
-    if (!businessToDelete) return;
+  const openOutlet = (id: string) => router.push(`${pathname}?outlet=${id}`, { scroll: false });
+  const closeOutlet = () => router.replace(pathname, { scroll: false });
+
+  const handleDelete = async () => {
+    if (!toDelete) return;
     try {
-      await deleteBusiness(businessToDelete.id).unwrap();
-      showToast.success(
-        "Enterprise Deleted",
-        `"${businessToDelete.name}" and all branches were permanently deleted from the database.`
-      );
-      setBusinessToDelete(null);
-    } catch (err: any) {
-      showToast.error(
-        "Deletion Failed",
-        err?.data?.message || "Could not delete outlet enterprise from database."
-      );
+      await deleteBusiness(toDelete.id).unwrap();
+      showToast.success("Outlet deleted", `${toDelete.name} and all its branches were permanently removed.`);
+      setToDelete(null);
+    } catch (err) {
+      showToast.error("Couldn't delete outlet", errorMessage(err, "Please try again."));
     }
   };
 
-  const outletsData = data?.data;
+  const deleteButton = (o: BusinessItem) => (
+    <Button
+      variant="danger-ghost"
+      size="icon-sm"
+      onClick={(e) => {
+        e.stopPropagation();
+        setToDelete(o);
+      }}
+      aria-label={`Delete ${o.name}`}
+      title="Delete outlet"
+    >
+      <Trash2 />
+    </Button>
+  );
 
   return (
     <div className="space-y-6">
-      {/* Page Title & Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-zinc-200 shadow-2xs">
-        <div>
-          <h2 className="text-xl font-bold text-[#1B2A4A] tracking-tight font-heading">
-            Outlets & Branch Topology
-          </h2>
-          <p className="text-xs text-zinc-500 mt-1">
-            Explore parent restaurant brands and their physical branch networks across ALAYN
-          </p>
-        </div>
+      <PageHeader
+        title="Outlets"
+        description="Every restaurant brand on ALAYN. Select one to see its branches, plans and setup."
+      />
 
-        {/* Search Input */}
-        <div className="flex items-center gap-3">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
-            <input
-              type="text"
-              placeholder="Search outlet or owner..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="input pl-10 text-xs py-2"
-            />
-          </div>
-          <button
+      <Card className="overflow-hidden">
+        <div className="flex items-center gap-2 border-b border-slate-200 p-4">
+          <SearchInput
+            label="Search outlets"
+            value={search}
+            onChange={setSearch}
+            placeholder="Search by brand or owner"
+            className="w-full sm:w-80"
+          />
+          <Button
+            variant="secondary"
+            size="icon"
             onClick={() => refetch()}
             disabled={isFetching}
-            className="btn-ghost text-xs p-2.5"
-            title="Refresh list"
+            aria-label="Refresh list"
+            title="Refresh"
           >
-            <RefreshCw className={`w-4 h-4 ${isFetching ? "animate-spin" : ""}`} />
-          </button>
+            <RefreshCw className={isFetching ? "animate-spin" : ""} />
+          </Button>
         </div>
-      </div>
 
-      {/* Error state */}
-      {error && (
-        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-[#D3232A] text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>Failed to fetch outlets list. Please check connectivity.</span>
-        </div>
-      )}
-
-      {/* Outlets Table */}
-      <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-2xs">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#F4F5F8] border-b border-zinc-200 text-zinc-500 uppercase tracking-wider font-semibold">
-              <tr>
-                <th className="py-3.5 px-6">Outlet Brand</th>
-                <th className="py-3.5 px-4 text-center">Branches</th>
-                <th className="py-3.5 px-4">Business Owner</th>
-                <th className="py-3.5 px-4">Contact</th>
-                <th className="py-3.5 px-4">Registered Date</th>
-                <th className="py-3.5 px-6 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100 text-zinc-700">
-              {isLoading ? (
-                Array.from({ length: 6 }).map((_, i) => (
-                  <tr key={i} className="animate-pulse">
-                    <td className="py-4 px-6">
-                      <div className="h-4 w-36 bg-zinc-200 rounded" />
-                      <div className="h-3 w-20 bg-zinc-100 rounded mt-1.5" />
-                    </td>
-                    <td className="py-4 px-4 text-center">
-                      <div className="h-5 w-12 bg-zinc-200 rounded-full mx-auto" />
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="h-4 w-28 bg-zinc-200 rounded" />
-                      <div className="h-3 w-36 bg-zinc-100 rounded mt-1.5" />
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="h-4 w-24 bg-zinc-200 rounded" />
-                    </td>
-                    <td className="py-4 px-4">
-                      <div className="h-4 w-20 bg-zinc-200 rounded" />
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="h-7 w-20 bg-zinc-200 rounded ml-auto" />
-                    </td>
+        {error ? (
+          <div className="p-4">
+            <ErrorState
+              title="Couldn't load outlets"
+              message={errorMessage(error, "Check your connection and try again.")}
+              onRetry={refetch}
+              retrying={isFetching}
+            />
+          </div>
+        ) : isLoading ? (
+          <div className="divide-y divide-slate-100">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3 px-5 py-4">
+                <Skeleton className="size-9 rounded-lg" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-4 w-44" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <Skeleton className="hidden h-4 w-40 md:block" />
+              </div>
+            ))}
+          </div>
+        ) : items.length === 0 ? (
+          debouncedSearch ? (
+            <EmptyState
+              icon={<Store />}
+              title={`No outlets match “${debouncedSearch}”`}
+              description="Check the spelling, or search by the owner's name or email."
+              action={
+                <Button variant="secondary" size="sm" onClick={() => setSearch("")}>
+                  Clear search
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState icon={<Store />} title="No outlets yet" description="Restaurants that sign up will appear here." />
+          )
+        ) : (
+          <div className={isFetching ? "opacity-60 transition-opacity" : "transition-opacity"}>
+            {/* Desktop table */}
+            <div className="hidden overflow-x-auto md:block">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Brand</th>
+                    <th>Owner</th>
+                    <th>Phone</th>
+                    <th className="text-right">Branches</th>
+                    <th>Joined</th>
+                    <th>
+                      <span className="sr-only">Actions</span>
+                    </th>
                   </tr>
-                ))
-              ) : !outletsData?.items || outletsData.items.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-16 text-center text-zinc-400">
-                    <Store className="w-10 h-10 mx-auto text-zinc-300 mb-2" />
-                    <p className="font-semibold text-sm text-zinc-600">
-                      No outlets have been registered yet.
-                    </p>
-                    <p className="text-xs mt-1">
-                      Registered restaurant businesses will appear here.
-                    </p>
-                  </td>
-                </tr>
-              ) : (
-                outletsData.items.map((outlet) => (
-                  <tr
-                    key={outlet.id}
-                    className="hover:bg-zinc-50/80 transition-colors group cursor-pointer"
-                    onClick={() => setSelectedBusinessId(outlet.id)}
-                  >
-                    <td className="py-4 px-6">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-[#1B2A4A]/5 border border-[#1B2A4A]/10 flex items-center justify-center font-bold text-xs text-[#1B2A4A] shrink-0">
-                          {outlet.name.slice(0, 2).toUpperCase()}
+                </thead>
+                <tbody>
+                  {items.map((o) => (
+                    <tr
+                      key={o.id}
+                      onClick={() => openOutlet(o.id)}
+                      className="group cursor-pointer hover:bg-slate-50/80"
+                    >
+                      <td>
+                        <div className="flex items-center gap-3">
+                          <Avatar name={o.name} />
+                          <div className="min-w-0">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openOutlet(o.id);
+                              }}
+                              className="block max-w-[260px] truncate text-left font-semibold text-slate-900 group-hover:text-navy-700"
+                            >
+                              {o.name}
+                            </button>
+                            <p className="text-[13px] text-slate-500">{o.businessType}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-sm text-[#1B2A4A] group-hover:text-[#D3232A] transition-colors">
-                            {outlet.name}
-                          </p>
-                          <span className="inline-block text-[11px] text-zinc-500 font-medium">
-                            {outlet.businessType}
-                          </span>
+                      </td>
+                      <td>
+                        {o.owner ? (
+                          <div className="min-w-0">
+                            <p className="max-w-[220px] truncate text-slate-900">{o.owner.name}</p>
+                            <p className="max-w-[220px] truncate text-[13px] text-slate-500">{o.owner.email}</p>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400">No owner linked</span>
+                        )}
+                      </td>
+                      <td className="whitespace-nowrap tabular-nums text-slate-600">
+                        {o.contactDetail || o.owner?.phone || <span className="text-slate-400">—</span>}
+                      </td>
+                      <td className="text-right tabular-nums font-medium text-slate-900">{o.branchCount}</td>
+                      <td className="whitespace-nowrap text-slate-600">{formatDate(o.createdAt)}</td>
+                      <td>
+                        <div className="flex items-center justify-end gap-1">
+                          {deleteButton(o)}
+                          <ChevronRight className="size-4 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-500" />
                         </div>
-                      </div>
-                    </td>
-
-                    <td className="py-4 px-4 text-center">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-[#1B2A4A]/5 text-[#1B2A4A] border border-[#1B2A4A]/10">
-                        <MapPin className="w-3 h-3 text-[#D3232A]" />
-                        {outlet.branchCount} {outlet.branchCount === 1 ? "branch" : "branches"}
-                      </span>
-                    </td>
-
-                    <td className="py-4 px-4">
-                      {outlet.owner ? (
-                        <div>
-                          <p className="font-semibold text-zinc-900">{outlet.owner.name}</p>
-                          <p className="text-[11px] text-zinc-500 font-mono">{outlet.owner.email}</p>
-                        </div>
-                      ) : (
-                        <span className="text-zinc-400 italic">No owner linked</span>
-                      )}
-                    </td>
-
-                    <td className="py-4 px-4 font-mono text-zinc-600">
-                      {outlet.contactDetail || outlet.owner?.phone || "N/A"}
-                    </td>
-
-                    <td className="py-4 px-4 text-zinc-500 font-medium">
-                      {formatDate(outlet.createdAt)}
-                    </td>
-
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedBusinessId(outlet.id);
-                          }}
-                          className="btn-ghost py-1 px-2.5 text-xs inline-flex items-center gap-1.5"
-                          title="Inspect branches"
-                        >
-                          <Eye className="w-3.5 h-3.5 text-zinc-500" />
-                          <span>Inspect</span>
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setBusinessToDelete({ id: outlet.id, name: outlet.name });
-                          }}
-                          className="p-1.5 rounded-lg text-zinc-400 hover:text-[#D3232A] hover:bg-rose-50 transition-colors cursor-pointer"
-                          title={`Permanently delete "${outlet.name}" from database`}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination Bar */}
-        {outletsData && outletsData.totalPages > 1 && (
-          <div className="py-3.5 px-6 border-t border-zinc-200 flex items-center justify-between bg-zinc-50 text-xs text-zinc-600">
-            <span>
-              Showing Page <strong>{outletsData.page}</strong> of <strong>{outletsData.totalPages}</strong> (
-              {outletsData.total} total outlets)
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="btn-ghost py-1 px-2.5 text-xs disabled:opacity-40"
-              >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                Previous
-              </button>
-              <button
-                disabled={page >= outletsData.totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                className="btn-ghost py-1 px-2.5 text-xs disabled:opacity-40"
-              >
-                Next
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
+
+            {/* Mobile list */}
+            <ul className="divide-y divide-slate-100 md:hidden">
+              {items.map((o) => (
+                <li key={o.id} className="flex items-center gap-2 pr-3">
+                  <button onClick={() => openOutlet(o.id)} className="flex min-w-0 flex-1 items-center gap-3 p-4 text-left">
+                    <Avatar name={o.name} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-slate-900">{o.name}</p>
+                      <p className="truncate text-[13px] text-slate-500">
+                        {o.owner?.name ?? "No owner"} · {o.branchCount} {o.branchCount === 1 ? "branch" : "branches"}
+                      </p>
+                    </div>
+                    <ChevronRight className="size-4 shrink-0 text-slate-300" />
+                  </button>
+                  {deleteButton(o)}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
-      </div>
 
-      {/* Drilldown Drawer */}
-      <BranchDetailsDrawer
-        businessId={selectedBusinessId}
-        onClose={() => setSelectedBusinessId(null)}
-      />
+        {list && items.length > 0 && (
+          <Pagination
+            page={list.page}
+            totalPages={list.totalPages}
+            total={list.total}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+            noun={list.total === 1 ? "outlet" : "outlets"}
+          />
+        )}
+      </Card>
 
-      {/* Permanent Deletion Confirmation Modal */}
-      <ConfirmDeleteModal
-        isOpen={!!businessToDelete}
-        onClose={() => setBusinessToDelete(null)}
-        onConfirm={handleDeleteBusiness}
-        title="Delete Outlet Enterprise"
-        entityName={businessToDelete?.name || ""}
-        entityType="Brand"
-        subWarning="This will delete this restaurant brand and every branch location, menu, and order from the database."
-        isDeleting={isDeletingBusiness}
+      <BranchDetailsDrawer businessId={selectedId} onClose={closeOutlet} />
+
+      <ConfirmDialog
+        open={!!toDelete}
+        onClose={() => setToDelete(null)}
+        onConfirm={handleDelete}
+        loading={isDeleting}
+        title={`Delete ${toDelete?.name ?? "outlet"}?`}
+        description={
+          toDelete
+            ? `This permanently removes the brand and all ${toDelete.branchCount} of its ${
+                toDelete.branchCount === 1 ? "branch" : "branches"
+              }. It can't be undone.`
+            : undefined
+        }
+        consequences={[
+          "Every branch under this brand",
+          "All orders, bills, tickets and receipts",
+          "Menus, dishes, inventory and suppliers",
+          "Staff records, shifts and attendance",
+          "Subscription records",
+        ]}
+        requireText={toDelete?.name}
+        confirmLabel="Delete outlet"
       />
     </div>
+  );
+}
+
+export default function OutletsPage() {
+  return (
+    <Suspense fallback={null}>
+      <OutletsContent />
+    </Suspense>
   );
 }
